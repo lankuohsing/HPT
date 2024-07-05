@@ -23,9 +23,9 @@ if __name__ == '__main__':
         if l[1] not in label_to_id:
             label_to_id[l[1]] = len(label_to_id)
         parent_to_children[label_to_id[l[0]]].add(label_to_id[l[1]])
-    # id_to_label = {i: v for v, i in label_to_id.items()}
-    # torch.save(id_to_label, 'id_to_label.pt')
-    # torch.save(parent_to_children, 'parent_to_children.pt')
+    id_to_label = {i: v for v, i in label_to_id.items()}
+    torch.save(id_to_label, 'value_dict.pt')
+    torch.save(parent_to_children, 'slot.pt')
     #改为json方式保存.set无法被序列化
     id_to_label = {i: v for v, i in label_to_id.items()}
     parent_to_children = {i: list(v) for i, v in parent_to_children.items()}

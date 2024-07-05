@@ -176,7 +176,7 @@ if __name__ == '__main__':
     update_step = 0
     loss = 0
     if not os.path.exists(os.path.join('checkpoints', args.name)):
-        os.mkdir(os.path.join('checkpoints', args.name))
+        os.makedirs(os.path.join('checkpoints', args.name))
 
     for epoch in range(1000):
         if early_stop_count >= args.early_stop:

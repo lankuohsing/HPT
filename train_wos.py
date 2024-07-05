@@ -65,15 +65,15 @@ if __name__ == '__main__':
     batch_size = args.batch
 
     #改为从json中load。之前已经改为json保存
-    # id_to_label = torch.load(os.path.join(data_path, 'id_to_label.pt'))
-    with open(os.path.join(data_path, 'id_to_label.json'),'r',encoding="UTF-8") as rf:
-        id_to_label=json.load(rf)
-    id_to_label = {int(i): v for i, v in id_to_label.items()}
+    id_to_label = torch.load(os.path.join(data_path, 'value_dict.pt'))
+    # with open(os.path.join(data_path, 'id_to_label.json'),'r',encoding="UTF-8") as rf:
+    #     id_to_label=json.load(rf)
+    # id_to_label = {int(i): v for i, v in id_to_label.items()}
 
-    # parent_to_children = torch.load(os.path.join(data_path, 'parent_to_children.pt'))
-    with open(os.path.join(data_path, 'parent_to_children.json'),'r',encoding="UTF-8") as rf:
-        parent_to_children=json.load(rf)
-    parent_to_children = {int(i): v for i, v in parent_to_children.items()}
+    parent_to_children = torch.load(os.path.join(data_path, 'slot.pt'))
+    # with open(os.path.join(data_path, 'parent_to_children.json'),'r',encoding="UTF-8") as rf:
+    #     parent_to_children=json.load(rf)
+    # parent_to_children = {int(i): v for i, v in parent_to_children.items()}
     child_to_parent = {}
     num_class = 0
     for s in parent_to_children:
