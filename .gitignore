@@ -1,2 +1,9 @@
 checkpoints/
 .idea/
+/**/__pycache__/*
+.DS_Store
+Meta-data/
+*.pt
+*.json
+
+*.txt

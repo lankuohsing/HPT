@@ -22,12 +22,12 @@ def parse():
     parser.add_argument('--data', type=str, default='WebOfScience')
     parser.add_argument('--batch', type=int, default=2)
     parser.add_argument('--early-stop', type=int, default=6)
-    parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--name', type=str, required=True)
+    parser.add_argument('--device', type=str, default='cpu')
+    parser.add_argument('--name', type=str, default='test')
     parser.add_argument('--update', type=int, default=1)
     parser.add_argument('--model', type=str, default='prompt')
     parser.add_argument('--wandb', default=False, action='store_true')
-    parser.add_argument('--arch', type=str, default='bert-base-uncased')
+    parser.add_argument('--model_name_or_path', type=str, default='/Users/guoxing.lan/projects/models/bert-base-uncased')
     parser.add_argument('--layer', type=int, default=1)
     parser.add_argument('--graph', type=str, default='GAT')
     parser.add_argument('--low-res', default=False, action='store_true')
@@ -59,13 +59,13 @@ if __name__ == '__main__':
     print(args)
     utils.seed_torch(args.seed)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.arch)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
     data_path = os.path.join('data', args.data)
     args.name = args.data + '-' + args.name
     batch_size = args.batch
 
-    label_dict = torch.load(os.path.join(data_path, 'value_dict.pt'))
-    label_dict = {i: v for i, v in label_dict.items()}
+    id_to_label = torch.load(os.path.join(data_path, 'value_dict.pt'))
+    id_to_label = {i: v for i, v in id_to_label.items()}
 
     slot2value = torch.load(os.path.join(data_path, 'slot.pt'))
     value2slot = {}
@@ -156,8 +156,8 @@ if __name__ == '__main__':
             random.shuffle(index)
             json.dump(index, open(os.path.join(data_path, 'low.json'), 'w'))
         dataset['train'] = dataset['train'].select(index[len(index) // 5:len(index) // 10 * 3])
-    model = Prompt.from_pretrained(args.arch, num_labels=len(label_dict), path_list=path_list, layer=args.layer,
-                                   graph_type=args.graph, data_path=data_path, depth2label=depth2label,)
+    model = Prompt.from_pretrained(args.arch, num_labels=len(id_to_label), path_list=path_list, layer=args.layer,
+                                   graph_type=args.graph, data_path=data_path, depth2label=depth2label, )
     model.init_embedding()
 
     model.to('cuda')
@@ -217,7 +217,7 @@ if __name__ == '__main__':
                         for i, l in enumerate(ll):
                             if l == 1:
                                 gold[-1].append(i)
-        scores = evaluate(pred, gold, label_dict)
+        scores = evaluate(pred, gold, id_to_label)
         macro_f1 = scores['macro_f1']
         micro_f1 = scores['micro_f1']
         print('macro', macro_f1, 'micro', micro_f1)
@@ -263,7 +263,7 @@ if __name__ == '__main__':
                         for i, l in enumerate(ll):
                             if l == 1:
                                 gold[-1].append(i)
-        scores = evaluate(pred, gold, label_dict)
+        scores = evaluate(pred, gold, id_to_label)
         macro_f1 = scores['macro_f1']
         micro_f1 = scores['micro_f1']
         print('macro', macro_f1, 'micro', micro_f1)
