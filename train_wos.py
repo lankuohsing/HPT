@@ -64,38 +64,44 @@ if __name__ == '__main__':
     args.name = args.data + '-' + args.name
     batch_size = args.batch
 
-    id_to_label = torch.load(os.path.join(data_path, 'value_dict.pt'))
-    id_to_label = {i: v for i, v in id_to_label.items()}
+    #改为从json中load。之前已经改为json保存
+    # id_to_label = torch.load(os.path.join(data_path, 'id_to_label.pt'))
+    with open(os.path.join(data_path, 'id_to_label.json'),'r',encoding="UTF-8") as rf:
+        id_to_label=json.load(rf)
+    id_to_label = {int(i): v for i, v in id_to_label.items()}
 
-    slot2value = torch.load(os.path.join(data_path, 'slot.pt'))
-    value2slot = {}
+    # parent_to_children = torch.load(os.path.join(data_path, 'parent_to_children.pt'))
+    with open(os.path.join(data_path, 'parent_to_children.json'),'r',encoding="UTF-8") as rf:
+        parent_to_children=json.load(rf)
+    parent_to_children = {int(i): v for i, v in parent_to_children.items()}
+    child_to_parent = {}
     num_class = 0
-    for s in slot2value:
-        for v in slot2value[s]:
-            value2slot[v] = s
+    for s in parent_to_children:
+        for v in parent_to_children[s]:#set和list都可以for 循环遍历
+            child_to_parent[v] = s
             if num_class < v:
                 num_class = v
     num_class += 1
-    path_list = [(i, v) for v, i in value2slot.items()]
+    path_list = [(i, v) for v, i in child_to_parent.items()]
     for i in range(num_class):
-        if i not in value2slot:
-            value2slot[i] = -1
+        if i not in child_to_parent:
+            child_to_parent[i] = -1#第一层的标签是没有父节点的
 
 
     def get_depth(x):
         depth = 0
-        while value2slot[x] != -1:
+        while child_to_parent[x] != -1:
             depth += 1
-            x = value2slot[x]
+            x = child_to_parent[x]
         return depth
 
 
-    depth_dict = {i: get_depth(i) for i in range(num_class)}
-    max_depth = depth_dict[max(depth_dict, key=depth_dict.get)] + 1
-    depth2label = {i: [a for a in depth_dict if depth_dict[a] == i] for i in range(max_depth)}
+    id_to_depth = {i: get_depth(i) for i in range(num_class)}
+    max_depth = id_to_depth[max(id_to_depth, key=id_to_depth.get)] + 1
+    depth_to_id = {i: [a for a in id_to_depth if id_to_depth[a] == i] for i in range(max_depth)}
 
-    for depth in depth2label:
-        for l in depth2label[depth]:
+    for depth in depth_to_id:
+        for l in depth_to_id[depth]:
             path_list.append((num_class + depth, l))
 
     if args.model == 'prompt':
@@ -119,7 +125,7 @@ if __name__ == '__main__':
                 for l, t in zip(batch['label'], batch['token']):
                     new_batch['labels'].append([[-100 for _ in range(num_class)] for _ in range(max_depth)])
                     for d in range(max_depth):
-                        for i in depth2label[d]:
+                        for i in depth_to_id[d]:
                             new_batch['labels'][-1][d][i] = 0
                         for i in l:
                             if new_batch['labels'][-1][d][i] == 0:
@@ -157,7 +163,7 @@ if __name__ == '__main__':
             json.dump(index, open(os.path.join(data_path, 'low.json'), 'w'))
         dataset['train'] = dataset['train'].select(index[len(index) // 5:len(index) // 10 * 3])
     model = Prompt.from_pretrained(args.arch, num_labels=len(id_to_label), path_list=path_list, layer=args.layer,
-                                   graph_type=args.graph, data_path=data_path, depth2label=depth2label, )
+                                   graph_type=args.graph, data_path=data_path, depth2label=depth_to_id, )
     model.init_embedding()
 
     model.to('cuda')
@@ -208,7 +214,7 @@ if __name__ == '__main__':
         with torch.no_grad(), tqdm(dev) as pbar:
             for batch in pbar:
                 batch = {k: v.to('cuda') if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
-                output_ids, logits = model.generate(batch['input_ids'], depth2label=depth2label, )
+                output_ids, logits = model.generate(batch['input_ids'], depth2label=depth_to_id, )
                 for out, g in zip(output_ids, batch['labels']):
                     pred.append(set([i for i in out]))
                     gold.append([])
@@ -254,7 +260,7 @@ if __name__ == '__main__':
         with torch.no_grad(), tqdm(test) as pbar:
             for batch in pbar:
                 batch = {k: v.to('cuda') for k, v in batch.items()}
-                output_ids, logits = model.generate(batch['input_ids'], depth2label=depth2label, )
+                output_ids, logits = model.generate(batch['input_ids'], depth2label=depth_to_id, )
                 for out, g in zip(output_ids, batch['labels']):
                     pred.append(set([i for i in out]))
                     gold.append([])

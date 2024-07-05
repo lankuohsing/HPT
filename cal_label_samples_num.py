@@ -294,3 +294,10 @@ for y1y2, parent_child_set in y1y2_to_parent_child.items():
         dict_redundant_id_to_label[y1y2]=list(parent_child_set)
 
 print(json.dumps(dict_redundant_id_to_label))
+# In[]
+a={1,2,3}
+type(a)
+
+
+for i in a:
+    print(i)
