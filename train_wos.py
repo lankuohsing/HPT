@@ -20,14 +20,14 @@ def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', type=float, default=3e-5)
     parser.add_argument('--data', type=str, default='WebOfScience')
-    parser.add_argument('--batch', type=int, default=2)
+    parser.add_argument('--batch', type=int, default=4)
     parser.add_argument('--early-stop', type=int, default=6)
     parser.add_argument('--device', type=str, default='cpu')
     parser.add_argument('--name', type=str, default='test')
     parser.add_argument('--update', type=int, default=1)
     parser.add_argument('--model', type=str, default='prompt')
     parser.add_argument('--wandb', default=False, action='store_true')
-    parser.add_argument('--model_name_or_path', type=str, default='/Users/guoxing.lan/projects/models/bert-base-uncased')
+    parser.add_argument('--arch', type=str, default='/Users/guoxing.lan/projects/models/bert-base-uncased')
     parser.add_argument('--layer', type=int, default=1)
     parser.add_argument('--graph', type=str, default='GAT')
     parser.add_argument('--low-res', default=False, action='store_true')
@@ -59,17 +59,17 @@ if __name__ == '__main__':
     print(args)
     utils.seed_torch(args.seed)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
+    tokenizer = AutoTokenizer.from_pretrained(args.arch)
     data_path = os.path.join('data', args.data)
     args.name = args.data + '-' + args.name
     batch_size = args.batch
 
-    #改为从json中load。之前已经改为json保存
+    #{int: str}
     id_to_label = torch.load(os.path.join(data_path, 'value_dict.pt'))
     # with open(os.path.join(data_path, 'id_to_label.json'),'r',encoding="UTF-8") as rf:
     #     id_to_label=json.load(rf)
     # id_to_label = {int(i): v for i, v in id_to_label.items()}
-
+    #{int: set(int)}
     parent_to_children = torch.load(os.path.join(data_path, 'slot.pt'))
     # with open(os.path.join(data_path, 'parent_to_children.json'),'r',encoding="UTF-8") as rf:
     #     parent_to_children=json.load(rf)
@@ -166,13 +166,13 @@ if __name__ == '__main__':
                                    graph_type=args.graph, data_path=data_path, depth2label=depth_to_id, )
     model.init_embedding()
 
-    model.to('cuda')
+    model.to('cpu')
     if args.wandb:
         wandb.watch(model)
 
     train = DataLoader(dataset['train'], batch_size=batch_size, shuffle=True, )
     dev = DataLoader(dataset['dev'], batch_size=8, shuffle=False)
-    model.to('cuda')
+    model.to('cpu')
     optimizer = Adam(model.parameters(), lr=args.lr)
 
     save = Save(model, optimizer, None, args)
@@ -181,10 +181,9 @@ if __name__ == '__main__':
     early_stop_count = 0
     update_step = 0
     loss = 0
-    if not os.path.exists(os.path.join('checkpoints', args.name)):
-        os.mkdir(os.path.join('checkpoints', args.name))
+    os.makedirs(os.path.join('checkpoints', args.name),exist_ok=True)
 
-    for epoch in range(1000):
+    for epoch in range(4):
         if early_stop_count >= args.early_stop:
             print("Early stop!")
             break
@@ -192,7 +191,7 @@ if __name__ == '__main__':
         model.train()
         with tqdm(train) as p_bar:
             for batch in p_bar:
-                batch = {k: v.to('cuda') if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+                batch = {k: v.to('cpu') if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                 output = model(**batch)
                 output['loss'].backward()
                 loss += output['loss'].item()
@@ -213,7 +212,7 @@ if __name__ == '__main__':
         gold = []
         with torch.no_grad(), tqdm(dev) as pbar:
             for batch in pbar:
-                batch = {k: v.to('cuda') if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+                batch = {k: v.to('cpu') if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
                 output_ids, logits = model.generate(batch['input_ids'], depth2label=depth_to_id, )
                 for out, g in zip(output_ids, batch['labels']):
                     pred.append(set([i for i in out]))
@@ -244,7 +243,7 @@ if __name__ == '__main__':
         if args.wandb:
             wandb.log({'best_macro': best_score_macro, 'best_micro': best_score_micro})
 
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
 
     # test
     test = DataLoader(dataset['test'], batch_size=8, shuffle=False)
@@ -259,7 +258,7 @@ if __name__ == '__main__':
         gold = []
         with torch.no_grad(), tqdm(test) as pbar:
             for batch in pbar:
-                batch = {k: v.to('cuda') for k, v in batch.items()}
+                batch = {k: v.to('cpu') for k, v in batch.items()}
                 output_ids, logits = model.generate(batch['input_ids'], depth2label=depth_to_id, )
                 for out, g in zip(output_ids, batch['labels']):
                     pred.append(set([i for i in out]))

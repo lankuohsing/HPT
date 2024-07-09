@@ -90,8 +90,10 @@ def evaluate(epoch_predicts, epoch_labels, id2label, threshold=0.5, top_k=None):
     recall_micro = float(right_total) / gold_total
     micro_f1 = 2 * precision_micro * recall_micro / (precision_micro + recall_micro) if (precision_micro + recall_micro) > 0 else 0.0
 
-    return {'precision': precision_micro,
-            'recall': recall_micro,
+    return {'macro_precision': precision_macro,
+            'macro_recall': recall_macro,
+            'micro_precision': precision_micro,
+            'micro_recall': recall_micro,
             'micro_f1': micro_f1,
             'macro_f1': macro_f1,
             'full': [precision_dict, recall_dict, fscore_dict, right_count_list, predicted_count_list, gold_count_list]}

@@ -246,9 +246,20 @@ y1_to_parent=defaultdict(set)
 y2_to_children=defaultdict(set)
 y_to_child=defaultdict(set)
 child_to_y=defaultdict(set)
-with open("/Users/guoxing.lan/projects/github/wo_en/HPT/data/WebOfScience/Meta-data/Data.txt",'r',encoding="UTF-8") as rf:
+y_to_parent_child=defaultdict(set)
+parent_child_to_y=defaultdict(set)
+dict_y_samples=defaultdict(list)
+set_parent=set()
+set_child=set()
+count=0
+with open("/Users/guoxing.lan/projects/github/wo_en/HPT/data/WebOfScience/Meta-data/Data_rectified.txt",'r',encoding="UTF-8") as rf:
     for line in rf:
+        count+=1
+        if count==1:
+            continue
         split_list=line.strip().split("\t")
+        for i, item in enumerate(split_list):
+            split_list[i]=split_list[i].strip()
         assert len(split_list)==7
         y1=split_list[0]
         y2=split_list[1]
@@ -257,17 +268,110 @@ with open("/Users/guoxing.lan/projects/github/wo_en/HPT/data/WebOfScience/Meta-d
         child_label=split_list[4]
         y1_to_y2[y1].add(y2)
         y2_to_y1[y2].add(y1)
-        y1y2_to_y[y1+"-"+y2].add(Y)
-        y_to_y1y2[Y].add(y1+"-"+y2)
-        y1y2_to_parent_child[y1+"-"+y2].add(parent_label+"-"+child_label)
+        y1y2_to_y[y1+"###"+y2].add(Y)
+        y_to_y1y2[Y].add(y1+"###"+y2)
+        y1y2_to_parent_child[y1+"###"+y2].add(parent_label+"###"+child_label)
         y2_to_children[y2].add(child_label)
         y_to_child[Y].add(child_label)
         child_to_y[child_label].add(Y)
+        y_to_parent_child[Y].add(parent_label+"###"+child_label)
+        parent_child_to_y[parent_label+"###"+child_label].add(Y)
+        set_parent.add(parent_label)
+        set_child.add(child_label)
+        dict_y_samples[Y].append({
+            "token": split_list[6],
+            "label": [parent_label, child_label]
+            })
+
+# In[]
+import torch
+total_labels=list(set_parent)+list(set_child)
+
+id_to_label={}
+
+for i, label in enumerate(total_labels):
+    id_to_label[i]=label
+
+torch.save(id_to_label, 'value_dict.pt')
+
+# In[]
+label_to_id={}
+for id, label in id_to_label.items():
+    label_to_id[label]=id
+torch.save(label_to_id, 'label_to_id.pt')
+# In[]
+parent_to_children=defaultdict(set)
+
+# for parent_label in set_parent:
+#     parent_to_children["ROOT"].add(parent_label)
+
+
+
+
+
+for Y, samples in dict_y_samples.items():
+    for sample in samples:
+        label=sample['label']
+        parent_to_children[label_to_id[label[0]]].add(label_to_id[label[1]])
+
+torch.save(parent_to_children, 'slot.pt')
+
+# In[]
+with open("./wos.taxnomy",'w',encoding="UTF-8") as wf:
+    wf.write("ROOT\tCS\tbiochemistry\tMAE\tPsychology\tECE\tCivil\tMedical\n")
+    for parent, children in parent_to_children.items():
+        list_labels=[parent]+list(children)
+        list_labels=[id_to_label[e] for e in list_labels]
+        wf.write("\t".join(list_labels)+"\n")
+
+# In[]
+import random
+test_ratio=0.1
+dict_y_test=defaultdict(list)
+dict_y_val=defaultdict(list)
+dict_y_train=defaultdict(list)
+for y, samples in dict_y_samples.items():
+    random.seed(123)
+    random.shuffle(samples)
+    assert len(samples)>=3
+    test_size=int(len(samples)*0.1)
+    if test_size==0:
+        test_size=1
+
+    dict_y_test[y]=samples[0:test_size]
+    dict_y_val[y]=samples[test_size:2*test_size]
+    dict_y_train[y]=samples[2*test_size:]
+# In[]
+import json
+list_lines=[]
+dict_data=dict_y_train
+
+file_name="WebOfScience_train"
+with open(f"./{file_name}.json",'w',encoding="UTF-8") as wf:
+    for y, samples in dict_data.items():
+        for sample in samples:
+            for i, label in enumerate(sample['label']):
+                sample['label'][i]=int(label_to_id[label])
+            list_lines.append(json.dumps(sample,ensure_ascii=False))
+    random.seed(123)
+    random.shuffle(list_lines)
+    for line in list_lines:
+        wf.write(line+"\n")
+# In[]
+
 
 # In[]
 for y2,y1_set in y2_to_y1.items():
     if len(y1_set)>1:
         print(y2,y1_set)
+# In[]
+for y,parent_child_set in y_to_parent_child.items():
+    if len(parent_child_set)>1:
+        print(y,parent_child_set)
+
+for parent_child,y_set in parent_child_to_y.items():
+    if len(y_set)>1:
+        print(parent_child,y_set)
 
 # In[]
 for y1y2,y_set in y1y2_to_y.items():
@@ -301,3 +405,7 @@ type(a)
 
 for i in a:
     print(i)
+# In[]
+a=[]
+if a:
+    print(111)
