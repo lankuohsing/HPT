@@ -169,9 +169,11 @@ if __name__ == '__main__':
 
     print('path acc', father_count / (father_false + father_count))
     scores = evaluate(pred, gold, label_dict)
-    print(f'''
-scores: {json.dumps(scores,ensure_ascii=False)}
-''')
+#     print(f'''
+# scores: {json.dumps(scores,ensure_ascii=False)}
+# ''')
+    with open("test_scores.json",'w',encoding="UTF-8") as wf:
+        json.dump(scores,wf,ensure_ascii=False)
     macro_f1 = scores['macro_f1']
     micro_f1 = scores['micro_f1']
     print('macro', macro_f1, 'micro', micro_f1)
